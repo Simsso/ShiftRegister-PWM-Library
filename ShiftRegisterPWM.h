@@ -8,7 +8,10 @@
 #ifndef ShiftRegisterPWM_h
 #define ShiftRegisterPWM_h
 
-#include "Arduino.h"
+
+#include <stdlib.h>
+#include <avr/interrupt.h>
+
 
 #ifndef ShiftRegisterPWM_DATA_PORT
   #define ShiftRegisterPWM_DATA_PORT PORTD
@@ -36,6 +39,7 @@
 #define ShiftRegisterPWM_toggleClockPin() ShiftRegisterPWM_CLOCK_PORT ^= ShiftRegisterPWM_CLOCK_MASK
 #define ShiftRegisterPWM_toggleLatchPin() ShiftRegisterPWM_LATCH_PORT ^= ShiftRegisterPWM_LATCH_MASK
 
+
 class ShiftRegisterPWM
 {
 public:
@@ -49,20 +53,19 @@ public:
 
   ShiftRegisterPWM(uint8_t);
   void set(uint8_t pin, uint8_t value); // set PWM value of a pin
-  //uint8_t getValue(uint8_t pin) const; // get PWM value of a pin
 
   void update();
   void interrupt();
   void interrupt(UpdateFrequency updateFrequency);
 
-  static ShiftRegisterPWM *singleton;
+  static ShiftRegisterPWM *singleton; // used inside the ISR
 
 private:
   uint8_t shiftRegisterCount; // number of chained shift registers
-  uint8_t *data;
+  uint8_t *data; // data matrix [t + sr * 256]
   uint8_t time = 0; // time resolution of 256 steps
 
-  void shiftOut(uint8_t data) const;
+  void shiftOut(uint8_t data) const; // high speed shift out function
 };
 
 #endif

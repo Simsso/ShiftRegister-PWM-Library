@@ -1,7 +1,5 @@
 #include "ShiftRegisterPWM.h"
 
-#include "Arduino.h"
-
 ShiftRegisterPWM *ShiftRegisterPWM::singleton = NULL;
 
 ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount)
@@ -12,9 +10,9 @@ ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount)
   // two-dimensional array: first dimension time, second dimension shift register bytes
   // data[t + sr * 256]
   this->data = (uint8_t *) malloc(256 * shiftRegisterCount * sizeof(uint8_t));
-  for (uint16_t t = 0; t < 256; ++t)
+  for (int t = 0; t < 256; ++t)
   {
-    for (uint16_t i = 0; i < this->shiftRegisterCount; ++i)
+    for (int i = 0; i < this->shiftRegisterCount; ++i)
     {
       this->data[t + i * 256] = 0;
     }
@@ -26,7 +24,7 @@ ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount)
 void ShiftRegisterPWM::set(uint8_t pin, uint8_t value) 
 {
   uint8_t shiftRegister = pin / 8;
-  for (uint16_t t = 0; t < 256; ++t)
+  for (int t = 0; t < 256; ++t)
   {
     // set (pin % 8)th bit to (value > t)
     this->data[t + shiftRegister * 256] ^= (-(value > t) ^ this->data[t + shiftRegister * 256]) & (1 << (pin % 8));
@@ -35,7 +33,7 @@ void ShiftRegisterPWM::set(uint8_t pin, uint8_t value)
 
 void ShiftRegisterPWM::update()
 {
-  for (uint16_t i = 0; i < this->shiftRegisterCount; ++i)
+  for (int i = this->shiftRegisterCount - 1; i >= 0; i--)
   {
     this->shiftOut(this->data[time + i * 256]);
   }
