@@ -9,9 +9,9 @@ void setup()
 
 void loop()
 {
-  ShiftRegisterPWM shiftRegisterPWM(1);
+  ShiftRegisterPWM shiftRegisterPWM(1, 255);
 
-  shiftRegisterPWM.interrupt(ShiftRegisterPWM::UpdateFrequency::Fast_150);
+  shiftRegisterPWM.interrupt(ShiftRegisterPWM::UpdateFrequency::Slow);
   while (true) {
     for (uint8_t i = 0; i < 8; i++) {
       uint8_t val = (uint8_t)(((float)sin(millis() / 150.0 + i / 8.0 * 2.0 * PI) + 1) * 128);

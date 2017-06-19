@@ -2,19 +2,20 @@
 
 ShiftRegisterPWM *ShiftRegisterPWM::singleton = NULL;
 
-ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount)
+ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount, uint8_t resolution)
 {
   this->shiftRegisterCount = shiftRegisterCount;
+  this->resolution = resolution;
 
   // init data
   // two-dimensional array: first dimension time, second dimension shift register bytes
-  // data[t + sr * 256]
-  this->data = (uint8_t *) malloc(256 * shiftRegisterCount * sizeof(uint8_t));
-  for (int t = 0; t < 256; ++t)
+  // data[t + sr * resolution]
+  this->data = (uint8_t *) malloc(resolution * shiftRegisterCount * sizeof(uint8_t));
+  for (int t = 0; t < resolution; ++t)
   {
     for (int i = 0; i < this->shiftRegisterCount; ++i)
     {
-      this->data[t + i * 256] = 0;
+      this->data[t + i * resolution] = 0;
     }
   }
 
@@ -23,11 +24,12 @@ ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount)
 
 void ShiftRegisterPWM::set(uint8_t pin, uint8_t value) 
 {
+  value = (uint8_t) (value / 256.0 * resolution + .5); // round
   uint8_t shiftRegister = pin / 8;
-  for (int t = 0; t < 256; ++t)
+  for (int t = 0; t < resolution; ++t)
   {
     // set (pin % 8)th bit to (value > t)
-    this->data[t + shiftRegister * 256] ^= (-(value > t) ^ this->data[t + shiftRegister * 256]) & (1 << (pin % 8));
+    this->data[t + shiftRegister * resolution] ^= (-(value > t) ^ this->data[t + shiftRegister * resolution]) & (1 << (pin % 8));
   }
 };
 
@@ -35,19 +37,21 @@ void ShiftRegisterPWM::update()
 {
   for (int i = this->shiftRegisterCount - 1; i >= 0; i--)
   {
-    this->shiftOut(this->data[time + i * 256]);
+    this->shiftOut(this->data[time + i * resolution]);
   }
   ShiftRegisterPWM_toggleLatchPin();
-  ShiftRegisterPWM_toggleLatchPin();
-  this->time++; // update time step
+  
+  if (++this->time == resolution) {
+    this->time = 0;
+  }
 };
 
-void ShiftRegisterPWM::interrupt()
+void ShiftRegisterPWM::interrupt() const
 {
-  this->interrupt(ShiftRegisterPWM::UpdateFrequency::Medium_100);
+  this->interrupt(ShiftRegisterPWM::UpdateFrequency::Medium);
 };
 
-void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency)
+void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) const
 {
   cli(); // disable interrupts
   
@@ -57,27 +61,27 @@ void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency)
   TCNT1  = 0; // reset counter value
 
   switch (updateFrequency) {
-    case VerySlow_25: // exactly 6,400 Hz interrupt frequency
+    case VerySlow: // exactly 6,400 Hz interrupt frequency
       OCR1A = 2499; // compare match register
       TCCR1B |= (1 << CS10); // prescaler 1
       break;
       
-    case Slow_50: // exactly 12,800 Hz interrupt frequency
+    case Slow: // exactly 12,800 Hz interrupt frequency
       OCR1A = 1249; // compare match register
       TCCR1B |= (1 << CS10); // prescaler 1
       break;
       
-    case Fast_150: // aprox. 35,714 Hz interrupt frequency
+    case Fast: // aprox. 35,714 Hz interrupt frequency
       OCR1A = 55; // compare match register
       TCCR1B |= (1 << CS11); // prescaler 8
       break;
       
-    case SuperFast_200: // approx. 51,281.5 Hz interrupt frequency
+    case SuperFast: // approx. 51,281.5 Hz interrupt frequency
       OCR1A = 311; // compare match register
       TCCR1B |= (1 << CS10); // prescaler 1
       break;
       
-    case Medium_100: // exactly 25,600 Hz interrupt frequency
+    case Medium: // exactly 25,600 Hz interrupt frequency
     default:
       OCR1A = 624; // compare match register
       TCCR1B |= (1 << CS10); // prescaler 1
