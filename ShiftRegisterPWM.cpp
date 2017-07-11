@@ -1,14 +1,29 @@
+/*
+  ShiftRegisterPWM.cpp - Library for easy control of the 74HC595 shift register.
+  Created by Timo Denk (www.timodenk.com), Jun 2017.
+  Additional information is available at https://shiftregister-pwm.timodenk.com/
+  Released into the public domain.
+*/
+
 #include "ShiftRegisterPWM.h"
 
+// One static reference to the ShiftRegisterPWM that was lastly created. Used for access through timer interrupts.
 ShiftRegisterPWM *ShiftRegisterPWM::singleton = NULL;
 
+/**
+  * Constructor for a new ShiftRegisterPWM object. 
+  * An object is equivalent to one shift register or multiple, serially connected shift registers.
+  * @param shiftRegisterCount Number of serially connected shift registers. For a single one just 1. Maximum is 8. However, performance is likely to start causing trouble with lower values.
+  * @param resolution PWM resolution, that is the number of possible PWM value. The value has to be between 2 and 255 (due to performance limitations).
+  */
 ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount, uint8_t resolution)
 {
+  // set attributes
   this->shiftRegisterCount = shiftRegisterCount;
   this->resolution = resolution;
 
   // init data
-  // two-dimensional array: first dimension time, second dimension shift register bytes
+  // internally a two-dimensional array: first dimension time, second dimension shift register bytes
   // data[t + sr * resolution]
   this->data = (uint8_t *) malloc(resolution * shiftRegisterCount * sizeof(uint8_t));
   for (int t = 0; t < resolution; ++t)
@@ -19,12 +34,20 @@ ShiftRegisterPWM::ShiftRegisterPWM(uint8_t shiftRegisterCount, uint8_t resolutio
     }
   }
 
-  ShiftRegisterPWM::singleton = this;
+  ShiftRegisterPWM::singleton = this; // make this object accessible for timer interrupts
+
+  // the boolean will be used to increase the performance in other functions
+  singleShiftRegister = (shiftRegisterCount == 1);
 };
 
+/**
+  * Set a pin of the shift register to a given PWM value.
+  * @param pin The index of the pin (starting at 0). If multiple shift registers are chained, the first pin of the second shift register would be addressed with pin = 8.
+  * @param value The PWM value (between 0 and 255 as it will be scaled to the resolution that was passed to the constructor). 
+  */
 void ShiftRegisterPWM::set(uint8_t pin, uint8_t value) 
 {
-  value = (uint8_t) (value / 256.0 * resolution + .5); // round
+  value = (uint8_t) (value / 255.0 * resolution + .5); // round
   uint8_t shiftRegister = pin / 8;
   for (int t = 0; t < resolution; ++t)
   {
@@ -33,24 +56,45 @@ void ShiftRegisterPWM::set(uint8_t pin, uint8_t value)
   }
 };
 
-void ShiftRegisterPWM::update()
+/** 
+  * Updates the shift register outputs. This function should be called as frequently as possible, usually within an ISR to guarantee a fixed update frequency.
+  * For manual operation it is important to ensure that the function is called with a constant frequency that is suitable for the application. Commonly that is around 50 Hz * resolution for LEDs.
+  */
+inline void ShiftRegisterPWM::update()
 {
-  for (int i = this->shiftRegisterCount - 1; i >= 0; i--)
-  {
-    this->shiftOut(this->data[time + i * resolution]);
+  // higher performance for single shift register mode
+  if (singleShiftRegister) {
+    shiftOut(this->data[time]);
   }
-  ShiftRegisterPWM_toggleLatchPin();
+  else {
+    for (int i = this->shiftRegisterCount - 1; i >= 0; i--)
+    {
+      shiftOut(this->data[time + i * resolution]);
+    }
+  }
+  ShiftRegisterPWM_toggleLatchPinTwice();
   
-  if (++this->time == resolution) {
-    this->time = 0;
+  if (++time == resolution) {
+    time = 0;
   }
 };
 
+/**
+  * Calles void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) with the UpdateFrequency Medium 
+  * Have a look at the called function for more details.
+  */
 void ShiftRegisterPWM::interrupt() const
 {
   this->interrupt(ShiftRegisterPWM::UpdateFrequency::Medium);
 };
 
+/** 
+  * Initializes and starts the timer interrupt with a given update frequency.
+  * The used timer is the Arduino UNO's timer 1.
+  * The function can be called multiple times with different update frequencies in order to change the update frequency at any time.
+  * @param updateFrequency The update frequencies are either VerySlow @ 6,400 Hz, Slow @ 12,800 Hz, Fast @ 35,714 Hz, SuperFast @ 51,281.5 Hz, and Medium @ 25,600 Hz. 
+  * The actual PWM cycle length in seconds can be calculated by (resolution / frequency).
+  */
 void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) const
 {
   cli(); // disable interrupts
@@ -94,58 +138,49 @@ void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) const
   sei(); // allow interrupts
 }
 
-
+/**
+  * Timer 1 interrupt service routine (ISR)
+  */
 ISR(TIMER1_COMPA_vect) { // function which will be called when an interrupt occurs at timer 1
   ShiftRegisterPWM::singleton->update();
 };
 
-// shift out function
-// performance optimized
-void ShiftRegisterPWM::shiftOut(uint8_t data) const
+/**
+  * Shift out function. Performance optimized of Arduino's default shiftOut.
+  * See https://timodenk.com/blog/port-manipulation-and-arduino-digitalwrite-performance/ for timing measurements.
+  */
+inline void ShiftRegisterPWM::shiftOut(uint8_t data) const
 {
-  ShiftRegisterPWM_setDataPin();
-  uint8_t setRegister = ShiftRegisterPWM_DATA_PORT;
-  ShiftRegisterPWM_clearDataPin();
-  uint8_t clearedRegister = ShiftRegisterPWM_DATA_PORT;
-  
   // unrolled for loop
   // bit 0 (LSB)
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00000001) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00000001) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 1
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00000010) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00000010) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 2
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00000100) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00000100) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 3
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00001000) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00001000) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 4
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00010000) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00010000) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 5
-  ShiftRegisterPWM_DATA_PORT = (data & 0B00100000) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B00100000) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 6
-  ShiftRegisterPWM_DATA_PORT = (data & 0B01000000) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B01000000) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 
   // bit 7
-  ShiftRegisterPWM_DATA_PORT = (data & 0B10000000) ? setRegister : clearedRegister;
-  ShiftRegisterPWM_toggleClockPin();
-  ShiftRegisterPWM_toggleClockPin();
+  if (data & 0B10000000) { ShiftRegisterPWM_setDataPin(); } else { ShiftRegisterPWM_clearDataPin(); }
+  ShiftRegisterPWM_toggleClockPinTwice();
 };
