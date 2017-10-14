@@ -44,11 +44,11 @@ class ShiftRegisterPWM
 {
 public:
   enum UpdateFrequency {
-    VerySlow, // Cycle frequency 25 Hz at a resolution of 255 (6,400 Hz interrupt)
-    Slow, // Cycle frequency 50 Hz at a resolution of 255 (12,800 Hz interrupt)
-    Medium, // Cycle frequency 10 Hz at a resolution of 255 (35,714 Hz interrupt)
-    Fast, // Cycle frequency 15 Hz at a resolution of 255 (51,281 Hz interrupt)
-    SuperFast // Cycle frequency 20 Hz at a resolution of 255 (25,600 Hz interrupt)
+    VerySlow, // 6,400 Hz interrupt
+    Slow, // 12,800 Hz interrupt
+    Medium, // 25,600 Hz interrupt
+    Fast, // 35,714 Hz interrupt
+    SuperFast // 51,281 Hz interrupt
   };
 
   ShiftRegisterPWM(uint8_t, uint8_t);
