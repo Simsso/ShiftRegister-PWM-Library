@@ -1,7 +1,7 @@
 /*
   ShiftRegisterPWM.cpp - Library for easy control of the 74HC595 shift register.
   Created by Timo Denk (www.timodenk.com), Jun 2017.
-  Additional information is available at https://shiftregister-pwm.timodenk.com/
+  Additional information is available at https://timodenk.com/blog/shiftregister-pwm-library/
   Released into the public domain.
 */
 
@@ -60,7 +60,7 @@ void ShiftRegisterPWM::set(uint8_t pin, uint8_t value)
   * Updates the shift register outputs. This function should be called as frequently as possible, usually within an ISR to guarantee a fixed update frequency.
   * For manual operation it is important to ensure that the function is called with a constant frequency that is suitable for the application. Commonly that is around 50 Hz * resolution for LEDs.
   */
-inline void ShiftRegisterPWM::update()
+void ShiftRegisterPWM::update()
 {
   // higher performance for single shift register mode
   if (singleShiftRegister) {
@@ -79,6 +79,7 @@ inline void ShiftRegisterPWM::update()
   }
 };
 
+
 /**
   * Calles void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) with the UpdateFrequency Medium 
   * Have a look at the called function for more details.
@@ -87,6 +88,7 @@ void ShiftRegisterPWM::interrupt() const
 {
   this->interrupt(ShiftRegisterPWM::UpdateFrequency::Medium);
 };
+
 
 /** 
   * Initializes and starts the timer interrupt with a given update frequency.
@@ -138,12 +140,18 @@ void ShiftRegisterPWM::interrupt(UpdateFrequency updateFrequency) const
   sei(); // allow interrupts
 }
 
-/**
-  * Timer 1 interrupt service routine (ISR)
-  */
-ISR(TIMER1_COMPA_vect) { // function which will be called when an interrupt occurs at timer 1
-  ShiftRegisterPWM::singleton->update();
+
+#ifndef ShiftRegisterPWM_CUSTOM_INTERRUPT
+  /**
+    * Timer 1 interrupt service routine (ISR)
+    */
+  ISR(TIMER1_COMPA_vect) { // function which will be called when an interrupt occurs at timer 1
+    cli(); // disable interrupts (in case update method takes too long)
+    ShiftRegisterPWM::singleton->update();
+    sei(); // re-enable
 };
+#endif
+
 
 /**
   * Shift out function. Performance optimized of Arduino's default shiftOut.
