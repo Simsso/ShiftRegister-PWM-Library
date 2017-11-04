@@ -1,10 +1,12 @@
-/*
-  Library for PWM control of the 74HC595 shift register.
-  Created by Timo Denk (www.timodenk.com), 2017.
-  Additional information is available at https://timodenk.com/blog/shiftregister-pwm-library/
-  Released into the public domain.
-*/
+/**
+  * Library for PWM control of the 74HC595 shift register.
+  * Created by Timo Denk (www.timodenk.com), 2017.
+  * Additional information is available at https://timodenk.com/blog/shiftregister-pwm-library/
+  * Released into the public domain.
+  */
 
+
+#define ShiftRegisterPWM_CUSTOM_INTERRUPT
 #include "ShiftRegisterPWM.h"
 
 // number of chained shift register and PWM resolution (16 different levels)
@@ -48,6 +50,10 @@ ISR(TIMER2_COMPA_vect) {
   sei();
 }
 
+
+ISR(TIMER1_COMPA_vect) {
+  // timer1 interrupt to-do code here
+}
 
 void loop()
 {

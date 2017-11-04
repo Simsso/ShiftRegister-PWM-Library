@@ -1,6 +1,14 @@
+/**
+  * Library for PWM control of the 74HC595 shift register.
+  * Created by Timo Denk (www.timodenk.com), 2017.
+  * Additional information is available at https://timodenk.com/blog/shiftregister-pwm-library/
+  * Released into the public domain.
+  */
+
+
 #include "ShiftRegisterPWM.h"
 
-ShiftRegisterPWM shiftRegisterPWM(1, 16);
+ShiftRegisterPWM sr(1, 16);
 
 void setup()
 {
@@ -8,13 +16,13 @@ void setup()
   pinMode(3, OUTPUT); // sr clock pin
   pinMode(4, OUTPUT); // sr latch pin
   
-  shiftRegisterPWM.interrupt(ShiftRegisterPWM::UpdateFrequency::SuperFast);
+  sr.interrupt(ShiftRegisterPWM::UpdateFrequency::SuperFast);
 }
 
 void loop()
 {
   for (uint8_t i = 0; i < 8; i++) {
     uint8_t val = (uint8_t)(((float)sin(millis() / 150.0 + i / 8.0 * 2.0 * PI) + 1) * 128);
-    shiftRegisterPWM.set(i, val);
+    sr.set(i, val);
   }
 }
