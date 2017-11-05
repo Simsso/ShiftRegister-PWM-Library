@@ -5,7 +5,6 @@
   * Released into the public domain.
   */
 
-
 // Definition for that latch clock to be connected to pin 8
 // See https://www.arduino.cc/en/Reference/PortManipulation
 #define ShiftRegisterPWM_LATCH_PORT PORTB
@@ -15,7 +14,7 @@
 void setup() {
   pinMode(2, OUTPUT); // data
   pinMode(3, OUTPUT); // clock
-  pinMode(8, OUTPUT); // latch pin has changed!
+  pinMode(8, OUTPUT); // latch pin is now 8 (opposed to the default value 4)
 }
 
 void loop()

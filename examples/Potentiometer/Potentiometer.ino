@@ -5,7 +5,6 @@
   * Released into the public domain.
   */
 
-
 #include "ShiftRegisterPWM.h"
 
 const int resolution = 32, numLeds = 8;

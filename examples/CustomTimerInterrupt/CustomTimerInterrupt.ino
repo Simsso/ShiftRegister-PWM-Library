@@ -5,7 +5,6 @@
   * Released into the public domain.
   */
 
-
 #define ShiftRegisterPWM_CUSTOM_INTERRUPT
 #include "ShiftRegisterPWM.h"
 

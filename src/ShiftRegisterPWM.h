@@ -1,6 +1,6 @@
 /**
-  * ShiftRegisterPWM.h - Library for easy control of the 74HC595 shift register.
-  * Created by Timo Denk (www.timodenk.com), Jun 2017.
+  * Library for PWM control of the 74HC595 shift register.
+  * Created by Timo Denk (www.timodenk.com), 2017.
   * Additional information is available at https://timodenk.com/blog/shiftregister-pwm-library/
   * Released into the public domain.
   */

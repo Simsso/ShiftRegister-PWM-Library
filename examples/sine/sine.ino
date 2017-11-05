@@ -5,7 +5,6 @@
   * Released into the public domain.
   */
 
-
 #include "ShiftRegisterPWM.h"
 
 ShiftRegisterPWM sr(1, 16);
